@@ -23,22 +23,11 @@ public class LibraryModel {
 	dialogParent = parent;
 	try {
 
-
-
-
-
-
 		Class.forName("org.postgresql.Driver");
 
 	String url = "jdbc:postgresql://db.ecs.vuw.ac.nz/"+userid + "_jdbc";
 
 		con = DriverManager.getConnection(url, userid, password);
-
-
-
-
-
-
 
 	} catch (SQLException e) {
 		// TODO Auto-generated catch block
@@ -51,32 +40,62 @@ public class LibraryModel {
 
     }
 
+    /**
+     * Shows the book authors sorted according to AuthSeqNo
+     * @param isbn
+     * @return "Book Lookup:
+     * 				ISBN: title,
+     * 				Edition: 1, Number of copies: 10, copies left: 10
+     * 				Authors: Sunames
+     */
     public String bookLookup(int isbn) {
     	String title = "Isbn not found";
+    	String edition = "";
+    	String no_copies = "";
+    	String copies_left = "";
+    	String Author = "(No Authors)";
+    	//ArrayList<String> Asequence = new ArrayList();
     	try {
 			con.setAutoCommit(false);
-			String lookup = "SELECT * FROM Book WHERE isbn = "+ isbn+";";
+			String lookup = "SELECT * FROM Book NATURAL JOIN Book_Author NATURAL JOIN AUTHOR "
+							+ "WHERE isbn = "+ isbn
+							+"ORDER BY AuthorSeqNo ASC;";
 
 	    	Statement stmt = con.createStatement();
 	    	ResultSet rs = stmt.executeQuery(lookup);
 
 	    	while(rs.next()){
 	    		title = rs.getString("Title");
+	    		edition ="Edition: "+ rs.getInt("edition_no");
+	    		no_copies ="Number of copies: "+ rs.getString("numofcop");
+	    		copies_left = "copies left: "+rs.getString("numleft");
+	    		Author += rs.getString("Name")+rs.getString("surname")+',';
+
 	    	}
+
 	    	con.setAutoCommit(true);
 	    	stmt.close();
-	    	con.close();
+	    	//con.close();
 
 
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 
-
-	return title;
+    	String result =isbn +": "+title +"\n " +edition + no_copies+ copies_left+"\n " + Author ;
+	return result.replaceAll("\\s+", " ");
     }
 
+    /***
+     * This returns the book lookup for all books in the catalogue.
+     * @return
+     */
     public String showCatalogue() {
+    	//get all the isbns
+    	//for each one call lookupbook
+    	//add all the strings together?
+
+
 	return "Show Catalogue Stub";
     }
 
