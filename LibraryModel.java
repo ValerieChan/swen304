@@ -8,6 +8,7 @@
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -18,26 +19,61 @@ public class LibraryModel {
     // For use in creating dialogs and making them modal
     private JFrame dialogParent;
 
-    public LibraryModel(JFrame parent, String userid, String password) throws ClassNotFoundException, SQLException {
+    public LibraryModel(JFrame parent, String userid, String password)  {
 	dialogParent = parent;
-	Class.forName("org.postgresql.Driver");
+	try {
+
+
+
+
+
+
+		Class.forName("org.postgresql.Driver");
+
 	String url = "jdbc:postgresql://db.ecs.vuw.ac.nz/"+userid + "_jdbc";
-	con = DriverManager.getConnection(url, userid, password);
+
+		con = DriverManager.getConnection(url, userid, password);
+
+
+
+
+
+
+
+	} catch (SQLException e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	} catch (ClassNotFoundException e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	}
 
 
     }
 
-    public String bookLookup(int isbn) throws SQLException {
-    	con.setAutoCommit(false);
+    public String bookLookup(int isbn) {
+    	String title = "Isbn not found";
+    	try {
+			con.setAutoCommit(false);
+			String lookup = "SELECT * FROM Book WHERE isbn = "+ isbn+";";
 
-    	String lookup = "SELECT * FROM Book WHERE isbn = "+ isbn+";";
+	    	Statement stmt = con.createStatement();
+	    	ResultSet rs = stmt.executeQuery(lookup);
 
-    	Statement stmt = con.createStatement();
-    	int return_value = stmt.executeUpdate(lookup);
+	    	while(rs.next()){
+	    		title = rs.getString("Title");
+	    	}
+	    	con.setAutoCommit(true);
+	    	stmt.close();
+	    	con.close();
 
 
-    	con.setAutoCommit(true);
-	return "Lookup Book Stub";
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+
+
+	return title;
     }
 
     public String showCatalogue() {
