@@ -100,7 +100,35 @@ public class LibraryModel {
     }
 
     public String showLoanedBooks() {
-	return "Show Loaned Books Stub";
+	    //get all the books where number of copies doesnt equal number left
+	    //then call book lookup on it.
+	    String result="No books are currently on loan";
+	    try {
+		con.setAutoCommit(false);
+		String lookup = "SELECT * FROM Book";
+	    	Statement stmt = con.createStatement();
+	    	ResultSet rs = stmt.executeQuery(lookup);
+		int isbn;
+		int no_copies;
+		int copies_left;
+	    	while(rs.next()){
+			no_copies ="Number of copies: "+ rs.getString("numofcop");
+	    		copies_left = "copies left: "+rs.getString("numleft");
+			if(no_copies > copies_left){
+				result += "\n \n "+ bookLookup(rs.getInt("isbn"));
+			}
+		}
+			
+		con.setAutoCommit(true);
+	    	stmt.close();
+	    	//con.close();
+
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	    
+	return result;
     }
 
     public String showAuthor(int authorID) {
