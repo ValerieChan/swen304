@@ -2,6 +2,7 @@
  * LibraryModel.java
  * Author:
  * Created on:
+ * use select... for update to acieve correct lokcing
  */
 
 
