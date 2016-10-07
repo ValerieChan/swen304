@@ -2,7 +2,6 @@
  * LibraryModel.java
  * Author:
  * Created on:
- * use select... for update to acieve correct lokcing
  */
 
 
@@ -12,6 +11,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 
 import javax.swing.*;
 
@@ -54,7 +54,7 @@ public class LibraryModel {
     	String edition = "";
     	String no_copies = "";
     	String copies_left = "";
-    	String Author = "(No Authors)";
+    	String Author = "";
     	//ArrayList<String> Asequence = new ArrayList();
     	try {
 			con.setAutoCommit(false);
@@ -67,10 +67,99 @@ public class LibraryModel {
 
 	    	while(rs.next()){
 	    		title = rs.getString("Title");
-	    		edition ="Edition: "+ rs.getInt("edition_no");
-	    		no_copies ="Number of copies: "+ rs.getString("numofcop");
+	    		edition = rs.getString("edition_no");
+	    		no_copies =rs.getString("numofcop");
 	    		copies_left = "copies left: "+rs.getString("numleft");
 	    		Author += rs.getString("Name")+rs.getString("surname")+',';
+
+	    	}
+
+	    	if(Author.equals("")){Author = "(No Authors)";}
+	    	if(edition.equals("")){edition = "unspecified";}
+	    	if(no_copies.equals("")){edition = "unspecified";}
+	    	con.setAutoCommit(true);
+	    	stmt.close();
+	    	//con.close();
+
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+
+    	String result =isbn +": "+title +"\n Edition: "+ edition + "Number of copies: "+no_copies+ copies_left+"\n Authors: " + Author ;
+	return isbn +": "+title +"\n Edition: "+ edition + "Number of copies: "+no_copies+" Copies Left: "+ copies_left+"\n Authors: " + Author.replaceAll("\\s+", " ") ;//result.replaceAll("\\s+", " ");
+    }
+
+    /***
+     * This returns the book lookup for all books in the catalogue.
+     * @return
+     */
+    public String showCatalogue() {
+    	String res = "";
+    	//get all the isbns
+    	try {
+			con.setAutoCommit(false);
+			String lookup = "SELECT isbn FROM book;";
+			Statement stmt = con.createStatement();
+	    	ResultSet rs = stmt.executeQuery(lookup);
+
+	    	int isbn;
+
+	    	while(rs.next()){
+	    		isbn = rs.getInt("isbn");
+
+	    		res += "\n \n "+bookLookup(isbn);
+	    	}
+
+
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+
+
+	return res;
+    }
+
+    public String showLoanedBooks() {
+    	//get all the books where number of copies doesnt equal number left
+	    //then call book lookup on it.
+
+    	String result = "Loaned Books: \n";
+    	try {
+			con.setAutoCommit(false);
+	    	String query = "SELECT * FROM Book WHERE numofcop > numLeft ORDER BY isbn ASC;";
+	    	Statement stmt = con.createStatement();
+	    	ResultSet rs = stmt.executeQuery(query);
+
+	    	while(rs.next()){
+	    		result = result + bookLookup(rs.getInt("isbn")) + " \n";
+	    	}
+	    	con.setAutoCommit(true);
+	    	stmt.close();
+	    	//con.close();
+
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+    	return result;
+    }
+
+    public String showAuthor(int authorID) {
+    	String result = "Show Author: \n" ;
+    	try {
+			con.setAutoCommit(false);
+			String query = "SELECT * FROM Book NATURAL JOIN Book_Author NATURAL JOIN AUTHOR "
+					+ "WHERE AuthorId = "+ authorID
+					+"ORDER BY AuthorSeqNo ASC;";
+	    	Statement stmt = con.createStatement();
+	    	ResultSet rs = stmt.executeQuery(query);
+
+	    	while(rs.next()){
+	    		result +="   "+ authorID +"-"+ rs.getString("name").replaceAll("\\s+", " ") + rs.getString("surname").replaceAll("\\s+", " ")
+	    				+"\n   Book Written:\n"+ "        "+rs.getInt("isbn")+"-"+ rs.getString("title");
 
 	    	}
 
@@ -83,61 +172,34 @@ public class LibraryModel {
 			e.printStackTrace();
 		}
 
-    	String result =isbn +": "+title +"\n " +edition + no_copies+ copies_left+"\n " + Author ;
-	return result.replaceAll("\\s+", " ");
-    }
-
-    /***
-     * This returns the book lookup for all books in the catalogue.
-     * @return
-     */
-    public String showCatalogue() {
-    	//get all the isbns
-    	//for each one call lookupbook
-    	//add all the strings together?
-
-
-	return "Show Catalogue Stub";
-    }
-
-    public String showLoanedBooks() {
-	    //get all the books where number of copies doesnt equal number left
-	    //then call book lookup on it.
-	    String result="No books are currently on loan";
-	    try {
-		con.setAutoCommit(false);
-		String lookup = "SELECT * FROM Book";
-	    	Statement stmt = con.createStatement();
-	    	ResultSet rs = stmt.executeQuery(lookup);
-		int isbn;
-		int no_copies;
-		int copies_left;
-	    	while(rs.next()){
-			no_copies ="Number of copies: "+ rs.getString("numofcop");
-	    		copies_left = "copies left: "+rs.getString("numleft");
-			if(no_copies > copies_left){
-				result += "\n \n "+ bookLookup(rs.getInt("isbn"));
-			}
-		}
-			
-		con.setAutoCommit(true);
-	    	stmt.close();
-	    	//con.close();
-
-
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-	    
-	return result;
-    }
-
-    public String showAuthor(int authorID) {
-	return "Show Author Stub";
+    	return result+" \n";
     }
 
     public String showAllAuthors() {
-	return "Show All Authors Stub";
+    	String res = "Show all authors: \n";
+    	//get all the isbns
+    	try {
+			con.setAutoCommit(false);
+			String lookup = "SELECT *FROM author;";
+			Statement stmt = con.createStatement();
+	    	ResultSet rs = stmt.executeQuery(lookup);
+
+	    	int AuthorId;
+
+	    	while(rs.next()){
+
+	    		res += "   "+rs.getInt("AuthorId")+":"+ rs.getString("name").replaceAll("\\s+", " ")+","+rs.getString("surname")+" \n ";
+	    	}
+
+
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+
+
+	return res;
     }
 
     public String showCustomer(int customerID) {
@@ -145,7 +207,31 @@ public class LibraryModel {
     }
 
     public String showAllCustomers() {
-	return "Show All Customers Stub";
+    	String res = "";
+    	//get all the isbns
+    	try {
+			con.setAutoCommit(false);
+			String lookup = "SELECT AuthorId FROM author;";
+			Statement stmt = con.createStatement();
+	    	ResultSet rs = stmt.executeQuery(lookup);
+
+	    	int AuthorId;
+
+	    	while(rs.next()){
+	    		AuthorId= rs.getInt("AuthorId");
+
+	    		res += " \n "+showAuthor(AuthorId);
+	    	}
+
+
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+
+
+	return res;
     }
 
     public String borrowBook(int isbn, int customerID, int day, int month, int year) {
