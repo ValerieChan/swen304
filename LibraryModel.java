@@ -418,55 +418,85 @@ public class LibraryModel {
 
     public String returnBook(int isbn, int customerID) {
     	String res = "Return Book: \n";
+    	Boolean success = false;
 
     	try {
     		con.setReadOnly(false);
     		con.setAutoCommit(false);
-
+    		con.setTransactionIsolation(con.TRANSACTION_SERIALIZABLE);
     		//check if customer exists
     		Statement stmt = con.createStatement();
-    		String customerValid = "SELECT * FROM Customer WHERE customerid ="+customerID+";";
+    		String customerValid = "SELECT * FROM Customer WHERE customerid ="+customerID+" FOR UPDATE;";// lock the customer
     		ResultSet customer = stmt.executeQuery(customerValid);
-    		if(customer == null){
-    			return "invalid customer";
-    		}
     		String name="";
     		while(customer.next()){
     			name = customer.getString("l_name").trim()+","+customer.getString("f_name").trim();
     		}
-    		//lock the customer
+    		if(name == ""){
+    			con.commit();
+				con.setAutoCommit(false);
+    			return "invalid customerid: "+ customerID;
+    		}
     		try {
-    			//check that there is a copy left to borrow
-    			String bookValid = "SELECT * FROM book WHERE isbn ="+isbn+";";
+    			//check that a book with that isbn exists
+    			String bookValid = "SELECT * FROM book WHERE isbn ="+isbn+";";// split this up into exists and is enough
     			ResultSet book = stmt.executeQuery(bookValid);
-    			if( book == null){return "invalid isbn";}
     			String title="";
-    			while(book.next()){title = book.getString("title").trim();}
-
-    			//lock the book
-
-    			//JOptionPane.showMessageDialog(dialogParent, "Locked the tuples(s), ready to update. Click Ok to continue");
-    			//update the book
+				while(book.next()){title = book.getString("title").trim();}
+				if( title.equals("")){
+					con.commit();
+					con.setAutoCommit(false);
+					return "Invalid Isbn: "+ isbn;
+					}
     			try {
-    				//con.setAutoCommit(true);
-    				String borrowBookQuery = "UPDATE book SET numleft = (SELECT numleft FROM book WHERE isbn ="+isbn+")+1 WHERE isbn="+isbn+";";
-    				stmt.executeUpdate(borrowBookQuery);
+    				//check they are already borrowing the book
+    				bookValid = "SELECT * FROM cust_book WHERE isbn ="+isbn+" AND customerid = "+customerID+";";
+    				book = stmt.executeQuery(bookValid);
+    				boolean out = false;
+    				while(book.next()){
+    					out = true;
+    				}
+    				if(out == false){
+    					con.commit();
+    					con.setAutoCommit(false);
+    					return "This customer does not have the book out.";
+    				}
+    					JOptionPane.showMessageDialog(dialogParent, "Locked the tuples(s), ready to update. Click Ok to continue");
 
-    				//Remove a tuple to customer_books
-    				String customerBookQuery = "DELETE FROM Cust_book WHERE isbn="+isbn+"AND customerid = "+customerID+";";
-    				stmt.executeUpdate(customerBookQuery);
-    				res +="    Book: "+isbn+"("+title+")\n    Loaned to: "+ customerID +"("+title+")\n ";
-    				con.commit();
-    				con.setAutoCommit(false);
+    					//update the book
+    					try {
+    						String borrowBookQuery = "UPDATE book SET numleft = (SELECT numleft FROM book WHERE isbn ="+isbn+")+1 WHERE isbn="+isbn+";";
+    						stmt.executeUpdate(borrowBookQuery);
+
+    						//Add a tuple to customer_books
+    						String customerBookQuery = "DELETE FROM Cust_book WHERE isbn="+isbn+"AND customerid = "+customerID+";";
+    	    				stmt.executeUpdate(customerBookQuery);
+    	    				res +="    Book: "+isbn+"("+title+")\n    Returned by: "+ customerID +"("+title+")\n ";
+    						con.commit();
+    						con.setAutoCommit(false);
+    						success = true;
+
+    					} catch (SQLException e) {
+    						res = "Unable to return book.";
+    					}
     			} catch (SQLException e) {
-    				return "Unable to return book.";
+    				res=  "This book was not on loan to this customer";
     			}
     		} catch (SQLException e) {
-    			return "Error retireving book with isbn :"+isbn;
+    			res=  "Error retrieving book with isbn :"+isbn;
     		}
     	} catch (SQLException e) {
-    		return "Error retireving customer: "+ customerID;
+    		res=  "Error retrieving customer: "+ customerID;
     	}
+
+    	if(success == false){
+    		try {
+    			con.rollback();
+    		} catch (SQLException e) {
+    			res= "roll back failed";
+    		}
+    	}
+
 
     	return res;
     }
