@@ -90,7 +90,7 @@ public class LibraryModel {
 		}
 
     	String result =isbn +": "+title +"\n Edition: "+ edition + "Number of copies: "+no_copies+ copies_left+"\n Authors: " + Author ;
-	return isbn +": "+title +"\n    Edition: "+ edition + " - Number of copies: "+no_copies+" - Copies Left: "+ copies_left+"\n    Authors: " + Author.trim() ;//result.trim();
+	return isbn +": "+title +"\n    Edition: "+ edition + " - Number of copies: "+no_copies+" - Copies Left: "+ copies_left+"\n    Authors: " + Author.replaceAll("\\s+","") ;//result.replaceAll("\\s+","");
     }
 
     /***
@@ -101,6 +101,7 @@ public class LibraryModel {
     	String res = "";
     	//get all the isbns
     	try {
+    		con.setAutoCommit(false);
 			String lookup = "SELECT isbn FROM book ORDER BY isbn ASC;";
 			Statement stmt = con.createStatement();
 	    	ResultSet rs = stmt.executeQuery(lookup);
@@ -173,7 +174,7 @@ public class LibraryModel {
     }
 
     public String showAuthor(int authorID) {
-    	String result = "Show Author: \n" ;
+    	String result = "" ;
     	String books="";
     	String bookTitle="";
     	try {
@@ -186,7 +187,7 @@ public class LibraryModel {
 	    	ResultSet rs = stmt.executeQuery(query);
 	    	int count=0;
 	    	while(rs.next()){
-	    		result ="   "+ authorID +"-"+ rs.getString("name").trim() + rs.getString("surname").trim()
+	    		result ="   "+ authorID +"-"+ rs.getString("name").replaceAll("\\s+","") + rs.getString("surname").replaceAll("\\s+","")
 	    				+"\n   ";
 	    		books +="\n        "+rs.getInt("isbn")+"-"+ rs.getString("title");
 	    		count++;
@@ -208,7 +209,7 @@ public class LibraryModel {
 			return "No such authorid: "+authorID;
 		}
 
-    	return result+bookTitle+ books+" \n";
+    	return "Show Author: \n"+ result+bookTitle+ books+" \n";
     }
 
 
@@ -226,7 +227,7 @@ public class LibraryModel {
 
 	    	while(rs.next()){
 
-	    		res += "   "+rs.getInt("AuthorId")+":"+ rs.getString("name").trim()+","+rs.getString("surname")+" \n ";
+	    		res += "   "+rs.getInt("AuthorId")+":"+ rs.getString("name").replaceAll("\\s+","")+","+rs.getString("surname")+" \n ";
 	    	}
 
 
@@ -241,46 +242,70 @@ public class LibraryModel {
 
 
     public String showCustomer(int customerID) {
+
     	String result = "Show Customer: \n" ;
     	String books="";
     	String bookBorrowed="";
-    	try {
-    		//con.setReadOnly(true);
-			String query = "SELECT * FROM Book NATURAL JOIN Customer NATURAL JOIN cust_book "
-					+ "WHERE customerId = "+ customerID
-					+";";
+    	try{
+    		con.setReadOnly(true);
+    		//con.setAutoCommit(false);
+    		Statement stmt = con.createStatement();
+    		String query = "SELECT * FROM  Customer WHERE customerId = "+ customerID
+    				+";";
 
-	    	Statement stmt = con.createStatement();
-	    	ResultSet rs = stmt.executeQuery(query);
-	    	int count =0;
-	    	while(rs.next()){
-	    		result ="   "+ customerID +"-"+ rs.getString("l_name").trim() + rs.getString("f_name").trim()+"- "+rs.getString("city");
-	    		books +="\n        "+rs.getInt("isbn")+"-"+ rs.getString("title");
-	    		count++;
+    		ResultSet rs = stmt.executeQuery(query);
+    		int count =0;
+    		while(rs.next()){
+    			count ++;
+    		}
+    		if(count ==0){
+    			con.commit();
+				//con.setAutoCommit(true);
+    			return "No such CustomerId: "+customerID;
+    		}
+    		try {
+    			//con.setReadOnly(true);
+    			query = "SELECT * FROM Customer "
+    					+ "WHERE customerId = "+ customerID
+    					+";";
+    			rs = stmt.executeQuery(query);
+    			while(rs.next()){
+    				result +="   "+ customerID +"-"+ rs.getString("l_name").replaceAll("\\s+","") + rs.getString("f_name").replaceAll("\\s+","")+"- "+rs.getString("city");
+    			}
 
-	    	}
-	    	if(count == 0){
-	    		bookBorrowed="No books borrowed: ";
-	    	} else if(count == 1){
-	    		bookBorrowed = "Book borrowed: ";
-	    	} else{
-	    		bookBorrowed= "Books borrowed: ";
-	    	}
+    			query = "SELECT * FROM Cust_book NATURAL JOIN book "
+    					+ "WHERE customerId = "+ customerID
+    					+";";
+    			rs = stmt.executeQuery(query);
+    			count =0;
+    			while(rs.next()){
+        			books +="\n        "+rs.getInt("isbn")+"-"+ rs.getString("title");
+    				count++;    			}
 
-	    	con.setAutoCommit(true);
-	    	stmt.close();
-	    	//con.close();
+    			if(count == 0){
+    				bookBorrowed="\n     (No books borrowed) ";
+    			} else if(count == 1){
+    				bookBorrowed = "\n Book borrowed: ";
+    			} else{
+    				bookBorrowed= "\n Books borrowed: ";
+    			}
 
+    			//con.setAutoCommit(true);
+    			stmt.close();
+    			//con.close();
 
-		} catch (SQLException e) {
-			return "No such CustomerId: "+customerID;
-		}
+    		} catch (SQLException e) {
+    			return "Error finding books our for that customer: "+customerID;
+    		}
+    	} catch (SQLException e) {
+    		return "No such CustomerId: "+customerID;
+    	}
 
-    	return result+books+" \n";
+    	return result+bookBorrowed + books+" \n";
     }
 
     public String showAllCustomers() {
-    	String res = "Show all authors: \n";
+    	String res = "Show all customers: \n";
     	//get all the isbns
     	try {
     		con.setReadOnly(true);
@@ -292,7 +317,7 @@ public class LibraryModel {
 
 	    	while(rs.next()){
 
-	    		res += "   "+rs.getInt("customerid")+":"+ rs.getString("l_name").trim()+","+rs.getString("f_name").trim()+
+	    		res += "   "+rs.getInt("customerid")+":"+ rs.getString("l_name").replaceAll("\\s+","")+","+rs.getString("f_name").replaceAll("\\s+","")+
 	    				"-"+rs.getString("city")+" \n ";
 	    	}
 
@@ -329,7 +354,7 @@ public class LibraryModel {
     		ResultSet customer = stmt.executeQuery(customerValid);
     		String name="";
     		while(customer.next()){
-    			name = customer.getString("l_name").trim()+","+customer.getString("f_name").trim();
+    			name = customer.getString("l_name").replaceAll("\\s+","")+","+customer.getString("f_name").replaceAll("\\s+","");
     		}
     		if(name == ""){
     			con.commit();
@@ -341,7 +366,7 @@ public class LibraryModel {
     			String bookValid = "SELECT * FROM book WHERE isbn ="+isbn+";";// split this up into exists and is enough
     			ResultSet book = stmt.executeQuery(bookValid);
     			String title="";
-				while(book.next()){title = book.getString("title").trim();}
+				while(book.next()){title = book.getString("title").replaceAll("\\s+","");}
 				if( title.equals("")){
 					con.commit();
 					con.setAutoCommit(false);
@@ -363,7 +388,7 @@ public class LibraryModel {
     					book = stmt.executeQuery(bookValid);
 
     					title="";
-    					while(book.next()){title = book.getString("title").trim();}
+    					while(book.next()){title = book.getString("title").replaceAll("\\s+","");}
     					if( title.equals("")){
     						con.commit();
     						con.setAutoCommit(false);
@@ -430,7 +455,7 @@ public class LibraryModel {
     		ResultSet customer = stmt.executeQuery(customerValid);
     		String name="";
     		while(customer.next()){
-    			name = customer.getString("l_name").trim()+","+customer.getString("f_name").trim();
+    			name = customer.getString("l_name").replaceAll("\\s+","")+","+customer.getString("f_name").replaceAll("\\s+","");
     		}
     		if(name == ""){
     			con.commit();
@@ -442,7 +467,7 @@ public class LibraryModel {
     			String bookValid = "SELECT * FROM book WHERE isbn ="+isbn+";";// split this up into exists and is enough
     			ResultSet book = stmt.executeQuery(bookValid);
     			String title="";
-				while(book.next()){title = book.getString("title").trim();}
+				while(book.next()){title = book.getString("title").replaceAll("\\s+","");}
 				if( title.equals("")){
 					con.commit();
 					con.setAutoCommit(false);
@@ -509,19 +534,30 @@ public class LibraryModel {
     	}
     }
 
-    public String deleteCus(int customerID) {
+    public String deleteCus(int customerID) {//deletes but you cant do anythign after... not sure why
+    	boolean success=false;
+    	String res = "";
     	try{
-    		//before you delete check that they do not have any books on loan.
+     		con.setReadOnly(false);
+    		con.setAutoCommit(false);
+    		con.setTransactionIsolation(con.TRANSACTION_SERIALIZABLE);
+
+    		//check they are real
     		Statement stmt = con.createStatement();
-    		String customerValid = "SELECT * FROM Customer WHERE customerid ="+customerID+";";
+    		String customerValid = "SELECT * FROM Customer WHERE customerid ="+customerID+" FOR UPDATE;";
     		ResultSet customer = stmt.executeQuery(customerValid);
-    		if(customer == null){
-    			return "invalid customer";
+    		String name="";
+    		while(customer.next()){
+    			name = customer.getString("l_name").replaceAll("\\s+","")+","+customer.getString("f_name").replaceAll("\\s+","");
+    		}
+    		if(name == ""){
+    			con.commit();
+				con.setAutoCommit(false);
+    			return "invalid customerid: "+ customerID;
     		}
 
     		try{
-    			//if they do return all of those books?
-        		//do we mark these as stolen?
+    			//dont let them if they have books out
     			String customerOwes = "SELECT * FROM cust_book WHERE customerid ="+customerID+";";
         		ResultSet onloan = stmt.executeQuery(customerOwes);
         		String exit = "";
@@ -531,69 +567,223 @@ public class LibraryModel {
         			count ++;
         		}
         		if(count ==1){
+        			con.commit();
+					con.setAutoCommit(false);
         			return"This Customer still has a book on loan, it must be returned before deletion."+ exit;
         		} else if (count > 1){
+        			con.commit();
+					con.setAutoCommit(false);
         			return"This Customer still has books on loan, they must be returned before deletion."+ exit;
-
         		}
 
     			try{
 
-    				con.setAutoCommit(true);
+    				con.setAutoCommit(false);
     				String customerDelete = "DELETE FROM Customer WHERE customerid = "+customerID+";";
     				stmt.executeUpdate(customerDelete);
+					con.commit();
+					con.setAutoCommit(true);
+    				success = true;
+    				res ="Customer deleted:"+  customerID +"\n ";
 
     			}catch (SQLException e) {
-    				return "Error retireving customer: "+ customerID;
+    				res="Error deleting customer: "+ customerID;
     			}
     		}catch (SQLException e) {
-    			return "Error retireving customer: "+ customerID;
+    			res="Customer has books owing";
     		}
     	}catch (SQLException e) {
-    		return "Error retireving customer: "+ customerID;
+    		res="Error retireving customer: "+ customerID;
     	}
-    	return "Delete Customer";
+    	if(success == false){
+    		try {
+    			con.rollback();
+				con.setAutoCommit(true);
+    		} catch (SQLException e) {
+    			res= "roll back failed";
+    		}
+    	}
+    	return res;
     }
 
     public String deleteAuthor(int authorID) {
+    	boolean success=false;
+    	String res = "";
     	try{
+     		con.setReadOnly(false);
+    		con.setAutoCommit(false);
+    		con.setTransactionIsolation(con.TRANSACTION_SERIALIZABLE);
     		//before you delete check that they do not have any books on loan.
     		Statement stmt = con.createStatement();
-    		String authorValid = "SELECT * FROM author WHERE authorid ="+authorID+";";
+    		String authorValid = "SELECT * FROM author WHERE authorid ="+authorID+" FOR UPDATE;";
     		ResultSet author = stmt.executeQuery(authorValid);
-    		if(author == null){
-    			return "invalid customer";
-    		}
+
 
     		try{
     			//do we delete all books that they have written?
     			//what about the ones where they are a co- author?
     			//what about the ones on loan to customers?
-    			String authorWrite = "SELECT * FROM book WHERE customerid ="+authorID+";";
-        		ResultSet onloan = stmt.executeQuery(authorWrite);
-        		while(onloan.next()){
+    			String authorWrite = "SELECT * FROM book NATURAL JOIN book_author WHERE authorid ="+authorID+" FOR UPDATE;";
+    			ResultSet onloan = stmt.executeQuery(authorWrite);
+    			String Books ="";
+    			while(onloan.next()){
+    				Books += onloan.getString("isbn")+", ";
+    			}
 
-        		}
-
+    			if(Books != ""){
+    				//set the entries in book author to default
+    				con.setAutoCommit(false);
+					String updateAuthor = "UPDATE book_author SET authorid =0 WHERE authorid ="+authorID+";";
+    				stmt.executeUpdate(updateAuthor);
+    			}
     			try{
 
-    				con.setAutoCommit(true);
-    				String customerDelete = "DELETE FROM Customer WHERE customerid = "+authorID+";";
-    				stmt.executeUpdate(customerDelete);
+    				con.setAutoCommit(false);
+    				String authorDelete = "DELETE FROM author WHERE authorid = "+authorID+";";
+    				stmt.executeUpdate(authorDelete);
+    				con.commit();
+					con.setAutoCommit(true);
+    				success = true;
+    				res ="Author deleted:"+  authorID +"\n ";
 
     			}catch (SQLException e) {
-    				return "Error retireving author: "+ authorID;
+    				res = "Error deleting: "+ authorID;
     			}
     		}catch (SQLException e) {
-    			return "Error retireving author: "+ authorID;
+    			res = "books still in lib: "+ authorID;
     		}
     	}catch (SQLException e) {
-    		return "Error retireving author: "+ authorID;
+    		res = "Error retireving author: "+ authorID;
     	}
-    	return "Author deleted: "+ authorID;
+    	if(success == false){
+    		try {
+    			con.rollback();
+				con.setAutoCommit(true);
+    		} catch (SQLException e) {
+    			res= "roll back failed";
+    		}
+    	}
+
+    	return res;
     }
 
     public String deleteBook(int isbn) {
-    	return "Delete Book";
+
+    	boolean success=false;
+    	String res = "";
+
+
+    	try{
+    		con.setReadOnly(false);
+    		//con.setAutoCommit(false);
+    		con.setTransactionIsolation(con.TRANSACTION_SERIALIZABLE);
+
+    		Statement stmt = con.createStatement();
+    		//check its a real book
+    		String bookValid= "SELECT * FROM book WHERE isbn="+isbn+"FOR UPDATE;";
+    		ResultSet there = stmt.executeQuery(bookValid);
+    		int count =0;
+    		while(there.next()){
+    			count ++;
+    		}
+    		if(count ==0){
+    			con.commit();
+    			con.setAutoCommit(false);
+    			return "This is not a valid isbn"+ isbn;
+    		}
+
+    		try{
+    			//before you delete check that there are no books on loan.
+    			String booksLoan = "SELECT * FROM cust_book WHERE isbn="+isbn+"FOR UPDATE;";
+    			there = stmt.executeQuery(booksLoan);
+    			while(there.next()){
+    				con.setAutoCommit(false);
+
+    				con.commit();
+    				return "This books still has issues on loan, please return them before deleting the book.";
+
+    			}
+    			try{
+    				con.setAutoCommit(false);
+
+    				try{
+    				//check that the author of this book has written other books, if not then delete them too.
+    				//save the author id
+    				String findAuthor = "SELECT * FROM  book_author WHERE isbn ="+isbn+";";
+    				there = stmt.executeQuery(findAuthor);
+    				ArrayList<Integer> authorList = new ArrayList<Integer>();
+    				int i=0;
+    				while(there.next()){
+    					authorList.add(there.getInt("authorid"));
+    					i++;
+    				}
+
+
+    				for(int j = 0; j< authorList.size(); j++){
+
+    					//count how many other books they have
+    					String findotherbooks ="SELECT * FROM book_author WHERE authorid ="+authorList.get(j)+";";
+    					there = stmt.executeQuery(findotherbooks);
+    					int authorb=0;
+    					while(there.next()){
+    						authorb ++;
+    					}
+    					if(authorb == 1){
+    						String bookauthordelete = "DELETE FROM author WHERE authorid="+authorList.get(j)+";";
+    						stmt.executeUpdate(bookauthordelete);
+    					}
+    				}
+    				} catch (SQLException e) {
+    	    			return "Error finding author: "+ isbn;
+    	    		}
+
+    				String bookDelete = "DELETE FROM book WHERE isbn="+isbn+";";
+    				stmt.executeUpdate(bookDelete);
+
+    				String bookauthor = "SELECT FROM book_author WHERE isbn="+isbn+" FOR UPDATE;";
+    				stmt.executeQuery(bookauthor);
+
+    				String bookauthordelete = "DELETE FROM book_author WHERE isbn="+isbn+";";
+    				stmt.executeUpdate(bookauthordelete);
+
+
+
+    				try{//deletes any isbns set to 0 so no null pointer exceptions.
+    					String Deletecheck = "SELECT * FROM book_author WHERE isbn ="+0+";";
+        				ResultSet check = stmt.executeQuery(Deletecheck);
+
+        				String delete = "DELETE FROM book_author WHERE isbn="+0+";";
+        				stmt.executeUpdate(delete);
+
+    				}catch (SQLException e) {
+        				res = "check delete did not work: "+ isbn;
+        			}
+
+    				con.commit();
+    				con.setAutoCommit(false);
+    				//con.setAutoCommit(true);
+    				success = true;
+    				res = "Book deleted: "+ isbn;
+
+    			}catch (SQLException e) {
+    				res = "Error deleting: "+ isbn;
+    			}
+    		}catch (SQLException e) {
+    			res = "book author check: "+ isbn;
+    		}
+    	}catch (SQLException e) {
+    		res = "books still in lib: "+ isbn;
+    	}
+    	if(success == false){
+    		try {
+    			System.out.println("here");
+    			con.rollback();
+    			con.setAutoCommit(false);
+    		} catch (SQLException e) {
+    			res= "roll back failed";
+    		}
+    	}
+    	System.out.println(res);
+    	return res;
     }
 }
